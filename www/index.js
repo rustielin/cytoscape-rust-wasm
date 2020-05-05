@@ -3,9 +3,9 @@ import { CytoGraph } from "wasm-cytoscape";
 
 
 import cytoscape from 'cytoscape';
-import dagre from 'cytoscape-dagre';
+import cola from 'cytoscape-cola';
 
-cytoscape.use( dagre );
+cytoscape.use( cola );
 
 
 /**
@@ -26,6 +26,15 @@ function populateAdditions(cy, cytograph) {
 }
 
 
+function regroupCy(cy) {
+  var layout = cy.layout({
+    name: 'cola',
+    animationDuration: 300
+  });
+  layout.run();
+}
+
+
 /**
  *  Initialize the backing wasm graph
  */
@@ -34,6 +43,7 @@ function initGraph(cy) {
   console.log(cytograph) 
   document.getElementById('addNodeButton').onclick = () => {cytograph.add_node(); populateAdditions(cy, cytograph)}
   document.getElementById('tickTimeButton').onclick = () => cytograph.tick();
+  document.getElementById('regroupButton').onclick = () => regroupCy(cy);
 }
 
 /**
@@ -48,7 +58,7 @@ function initCy() {
     autounselectify: true,
 
     layout: {
-      name: 'dagre'
+      name: 'cola'
     },
 
     style: [
@@ -75,7 +85,7 @@ function initCy() {
         }
       }
     ],
-
+/*
     elements: {
       nodes: [
         { data: { id: 'n0' } },
@@ -112,6 +122,7 @@ function initCy() {
         { data: { source: 'n13', target: 'n15' } },
       ]
     }
+*/
   });
 
   // init everything else
