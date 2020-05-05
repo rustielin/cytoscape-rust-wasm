@@ -31,6 +31,11 @@ impl CytoGraph {
         }
     }
 
+    pub fn tick(&mut self) {
+        self.additions.clear();
+        self.removals.clear();
+    }
+
     pub fn add_node(&mut self) -> usize {
         let n = self.graph.add_node(());
         self.additions.push(n.index());
@@ -47,6 +52,14 @@ impl CytoGraph {
 
     pub fn removed_nodes(&self) -> *const usize {
         self.removals.as_ptr()
+    }
+
+    pub fn additions_count(&self) -> usize {
+        self.additions.len()
+    }
+
+    pub fn removals_count(&self) -> usize {
+        self.removals.len()
     }
 
     pub fn node_count(&self) -> usize {

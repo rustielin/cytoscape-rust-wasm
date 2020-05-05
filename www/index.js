@@ -13,13 +13,13 @@ cytoscape.use( dagre );
  */
 function populateAdditions(cy, cytograph) {
   const additionsPtr = cytograph.added_nodes();
-  const additionsCount = cytograph.node_count();
+  const additionsCount = cytograph.additions_count();
   const additions = new Uint32Array(memory.buffer, additionsPtr, additionsCount);
   console.log(additions);
   for (var i = 0; i < additions.length; i++) {
     cy.add({
       group: 'nodes',
-      data: { weight: i }
+      data: { id: additions[i] }
     })
   }
 
@@ -32,8 +32,8 @@ function populateAdditions(cy, cytograph) {
 function initGraph(cy) {
   const cytograph = CytoGraph.new();
   console.log(cytograph) 
-  document.getElementById('addNode').onclick = () => {cytograph.add_node(); populateAdditions(cy, cytograph)}
-  document.getElementById('addEdge').onclick = () => console.log(cytograph.node_count())
+  document.getElementById('addNodeButton').onclick = () => {cytograph.add_node(); populateAdditions(cy, cytograph)}
+  document.getElementById('tickTimeButton').onclick = () => cytograph.tick();
 }
 
 /**
@@ -58,7 +58,6 @@ function initCy() {
           'background-color': '#11479e'
         }
       },
-
       {
         selector: 'edge',
         style: {
@@ -67,6 +66,12 @@ function initCy() {
           'line-color': '#9dbaea',
           'target-arrow-color': '#9dbaea',
           'curve-style': 'bezier'
+        }
+      }, 
+      {
+        selector: 'node[id]',
+        style: {
+          label: 'data(id)'
         }
       }
     ],
