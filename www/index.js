@@ -3,32 +3,40 @@ import { CytoGraph } from "wasm-cytoscape";
 
 
 import cytoscape from 'cytoscape';
-import cola from 'cytoscape-cola';
+import dagre from 'cytoscape-dagre';
 
-cytoscape.use( cola );
+cytoscape.use( dagre );
 
 
 /**
  *  Get the newly added elements in the backing wasm graph and populate them into cytoscape
  */
 function populateAdditions(cy, cytograph) {
-  const additionsPtr = cytograph.added_nodes();
-  const additionsCount = cytograph.additions_count();
-  const additions = new Uint32Array(memory.buffer, additionsPtr, additionsCount);
-  console.log(additions);
-  for (var i = 0; i < additions.length; i++) {
+  const addedNodesPtr = cytograph.get_added_nodes();
+  const addedNodesCount = cytograph.added_nodes_count();
+  const addedNodes = new Uint32Array(memory.buffer, addedNodesPtr, addedNodesCount);
+  for (var i = 0; i < addedNodes.length; i++) {
     cy.add({
       group: 'nodes',
-      data: { id: additions[i] }
+      data: { id: addedNodes[i] }
     })
   }
 
+  const addedEdgesPtr = cytograph.get_added_edges();
+  const addedEdgesCount = cytograph.added_edges_count();
+  const addedEdgesRaw = new Uint32Array(memory.buffer, addedEdgesPtr, addedEdgesCount);
+  for (var i = 0; i < addedEdgesRaw.length; i+=2) {
+    cy.add({
+      group: 'edges',
+      data: { source: addedEdgesRaw[i], target: addedEdgesRaw[i+1] }
+    })
+  }
 }
 
 
 function regroupCy(cy) {
   var layout = cy.layout({
-    name: 'cola',
+    name: 'dagre',
     animationDuration: 300
   });
   layout.run();
@@ -40,7 +48,6 @@ function regroupCy(cy) {
  */
 function initGraph(cy) {
   const cytograph = CytoGraph.new();
-  console.log(cytograph) 
   document.getElementById('addNodeButton').onclick = () => {cytograph.add_node(); populateAdditions(cy, cytograph)}
   document.getElementById('tickTimeButton').onclick = () => cytograph.tick();
   document.getElementById('regroupButton').onclick = () => regroupCy(cy);
@@ -58,7 +65,7 @@ function initCy() {
     autounselectify: true,
 
     layout: {
-      name: 'cola'
+      name: 'dagre'
     },
 
     style: [

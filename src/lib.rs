@@ -21,16 +21,18 @@ macro_rules! log {
 #[wasm_bindgen]
 pub struct CytoGraph {
     graph: Graph::<(), ()>,
-    added_nodes: Vec<usize>, // XXX: vec of element IDs (nodes/edges)
+    added_nodes: Vec<usize>,
     removed_nodes: Vec<usize>,
-    added_edges: Vec<(usize, usize)>,
-    removed_edges: Vec<(usize, usize)>,
+    added_edges: Vec<usize>, // XXX: hack around Rust -> JS type conversion
+    removed_edges: Vec<usize>, // just store as vec with even length
+    time: u32,
 }
 
 
 #[wasm_bindgen]
 impl CytoGraph {
     pub fn new() -> CytoGraph {
+        utils::set_panic_hook();
         let graph = Graph::<(), ()>::new();
         let added_nodes = Vec::new();
         let removed_nodes = Vec::new();
@@ -43,14 +45,18 @@ impl CytoGraph {
             removed_nodes,
             added_edges,
             removed_edges,
+            time: 0,
         }
     }
 
     pub fn tick(&mut self) {
+        utils::set_panic_hook();
         self.added_nodes.clear();
         self.removed_nodes.clear();
         self.added_edges.clear();
         self.removed_edges.clear();
+        log!("Tick {}", self.time);
+        self.time += 1;
     }
 
     pub fn add_node(&mut self) -> usize {
@@ -66,7 +72,6 @@ impl CytoGraph {
             }
             self.add_edge(n, i);
             self.add_edge(i, n);
-            log!("Added edge ({}, {}) and ({}, {})", n, i, i, n);
         }
 
         n
@@ -74,7 +79,8 @@ impl CytoGraph {
 
     pub fn add_edge(&mut self, src: usize, dst: usize) {
         self.graph.add_edge(NodeIndex::new(src), NodeIndex::new(dst), ());
-        self.added_edges.push((src, dst));
+        self.added_edges.push(src);
+        self.added_edges.push(dst);
     }
 
     pub fn get_added_nodes(&self) -> *const usize {
@@ -85,11 +91,11 @@ impl CytoGraph {
         self.removed_nodes.as_ptr()
     }
 
-    pub fn get_added_edges(&self) -> *const (usize, usize) {
+    pub fn get_added_edges(&self) -> *const usize {
         self.added_edges.as_ptr()
     }
 
-    pub fn get_removed_edges(&self) -> *const (usize, usize) {
+    pub fn get_removed_edges(&self) -> *const usize {
         self.removed_edges.as_ptr()
     }
 
