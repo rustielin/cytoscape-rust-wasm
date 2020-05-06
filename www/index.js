@@ -33,6 +33,24 @@ function populateAdditions(cy, cytograph) {
   }
 }
 
+function removeElements(cy, cytograph) {
+  const removedNodesPtr = cytograph.get_removed_nodes();
+  const removedNodesCount = cytograph.removed_nodes_count();
+  const removedNodes = new Uint32Array(memory.buffer, removedNodesPtr, removedNodesCount);
+  for (var i = 0; i < removedNodes.length; i++) {
+    var el = cy.nodes(`node[id = "${removedNodes[i]}"]`);
+    cy.remove(el);
+  }
+
+  const removedEdgesPtr = cytograph.get_removed_edges();
+  const removedEdgesCount = cytograph.removed_edges_count();
+  const removedEdgesRaw = new Uint32Array(memory.buffer, removedEdgesPtr, removedEdgesCount);
+  for (var i = 0; i < removedEdgesRaw.length; i+=2) {
+    var el = cy.edges(`edge[source = "${removedEdgesRaw[i]}][target = "${removedEdgesRaw[i+1]}"]`);
+    cy.remove(el);
+  }
+}
+
 
 function regroupCy(cy) {
   var layout = cy.layout({
@@ -48,8 +66,8 @@ function regroupCy(cy) {
  */
 function initGraph(cy) {
   const cytograph = CytoGraph.new();
-  document.getElementById('addNodeButton').onclick = () => {cytograph.add_node(); populateAdditions(cy, cytograph)}
-  document.getElementById('tickTimeButton').onclick = () => cytograph.tick();
+  document.getElementById('addNodeButton').onclick = () => {cytograph.add_node()}
+  document.getElementById('tickTimeButton').onclick = () => {cytograph.tick(); populateAdditions(cy, cytograph); removeElements(cy, cytograph)}
   document.getElementById('regroupButton').onclick = () => regroupCy(cy);
 }
 
