@@ -60,14 +60,27 @@ function regroupCy(cy) {
   layout.run();
 }
 
+/**
+ * When the client ticks, do all the buffered changes (e.g. additions and removals)
+ * and then finally tick the underlying cytograph in wasm
+ * @param {*} cy 
+ * @param {*} cytograph 
+ */
+function onTick(cy, cytograph) {
+  populateAdditions(cy, cytograph);
+  removeElements(cy, cytograph);
+  cytograph.tick();
+}
+
 
 /**
- *  Initialize the backing wasm graph
+ * Initialize the backing wasm graph
+ * @param {*} cy 
  */
 function initGraph(cy) {
   const cytograph = CytoGraph.new();
-  document.getElementById('addNodeButton').onclick = () => {cytograph.add_node()}
-  document.getElementById('tickTimeButton').onclick = () => {cytograph.tick(); populateAdditions(cy, cytograph); removeElements(cy, cytograph)}
+  document.getElementById('addNodeButton').onclick = () => cytograph.add_node();
+  document.getElementById('tickTimeButton').onclick = () => onTick(cy, cytograph);
   document.getElementById('regroupButton').onclick = () => regroupCy(cy);
 }
 
