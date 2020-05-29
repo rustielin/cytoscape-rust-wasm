@@ -18,17 +18,25 @@ macro_rules! log {
     }
 }
 
-#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
+/// Represents a CytoGraph node in wasm. Each of the members are fetched as bytes
+#[derive(Copy, Clone)]
 pub struct WasmNode {
     id: u32,
 }
 
+/// Represents a CytoGraph edge in wasm. Each of the members are fetched as bytes
 pub struct WasmEdge {
     id: u32,
     src: u32,
     dst: u32,
 }
 
+/// The main data structure for representing a cytoscape graph.
+/// CytoGraph uses an internal graph structure `graph` as well as graph element
+/// deltas such as `added_nodes` and `removed_nodes` to buffer changes to UI.
+///
+/// Graph metadata is stored in the internal graph itself. Under the hood, elements should
+/// not be removed directly from the graph, but rather flagged as removed with metadata.
 #[wasm_bindgen]
 pub struct CytoGraph {
     graph: Graph<u8, u32>, // use u8 to store metadata for now
@@ -89,6 +97,8 @@ impl CytoGraph {
         self.added_nodes.len() as u32
     }
 
+    /// Number of members in each added node. This is used by Javascript to index
+    /// directly into wasm linear memory
     pub fn added_nodes_size(&self) -> u32 {
         1
     }
@@ -112,6 +122,8 @@ impl CytoGraph {
         self.added_edges.len() as u32
     }
 
+    /// Number of members in each added edge. This is used by Javascript to index
+    /// directly into wasm linear memory
     pub fn added_edges_size(&self) -> u32 {
         3
     }
