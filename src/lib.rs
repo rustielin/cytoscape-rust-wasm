@@ -2,7 +2,7 @@ mod utils;
 
 extern crate web_sys;
 
-use petgraph::graph::{Graph, NodeIndex};
+use petgraph::graph::{Graph, NodeIndex, EdgeIndex};
 use wasm_bindgen::prelude::*;
 
 // When the `wee_alloc` feature is enabled, use `wee_alloc` as the global
@@ -39,7 +39,7 @@ pub struct WasmEdge {
 /// not be removed directly from the graph, but rather flagged as removed with metadata.
 #[wasm_bindgen]
 pub struct CytoGraph {
-    graph: Graph<u8, u32>, // use u8 to store metadata for now
+    graph: Graph<u8, u8>, // use u8 to store metadata as weight for now
     added_nodes: Vec<WasmNode>,
     removed_nodes: Vec<WasmNode>,
     added_edges: Vec<WasmEdge>,
@@ -50,7 +50,7 @@ pub struct CytoGraph {
 #[wasm_bindgen]
 impl CytoGraph {
     pub fn new() -> CytoGraph {
-        let graph = Graph::<u8, u32>::new();
+        let graph = Graph::<u8, u8>::new();
         let added_nodes = Vec::new();
         let removed_nodes = Vec::new();
         let added_edges = Vec::new();
@@ -64,6 +64,23 @@ impl CytoGraph {
             removed_edges,
             time,
         }
+    }
+
+    /// Creates a fully connected CytoGraph of a certain size
+    pub fn new_full(size: usize) -> CytoGraph {
+        let mut g = CytoGraph::new();
+        for _ in 0..size {
+            g.add_node();
+        }
+        for i in 0..size {
+            for j in 0..size {
+                if i == j {
+                    continue;
+                }
+                g.add_edge(g.added_nodes[i].id, g.added_nodes[j].id);
+            }
+        }
+        g
     }
 
     pub fn add_node(&mut self) -> u32 {
@@ -112,6 +129,22 @@ impl CytoGraph {
         let id = idx.index() as u32;
         self.added_edges.push(WasmEdge { id, src, dst });
         id
+    }
+
+    pub fn get_edge_meta(&self, idx: u32) -> u8 {
+        let w = self.graph.edge_weight(EdgeIndex::new(idx as usize));
+        match w {
+            Some(x) => return *x,
+            None => return 0,
+        }
+    }
+
+    pub fn set_edge_meta(&mut self, idx: u32, meta: u8) {
+        let w = self.graph.edge_weight_mut(EdgeIndex::new(idx as usize));
+        match w {
+            Some(x) => *x = *x & 0 | meta,
+            None => (),
+        }
     }
 
     pub fn get_added_edges(&self) -> *const WasmEdge {

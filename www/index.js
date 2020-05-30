@@ -1,5 +1,6 @@
 import { memory } from "wasm-cytoscape/wasm_cytoscape_bg";
 import { CytoGraph } from "wasm-cytoscape";
+import { META_FLAG_IDX, NODE_ID_PREFIX, EDGE_ID_PREFIX } from "./constants";
 
 import cytoscape from "cytoscape";
 import dagre from "cytoscape-dagre";
@@ -7,35 +8,72 @@ import dagre from "cytoscape-dagre";
 cytoscape.use(dagre);
 
 /**
+ * 
+ * @param {*} cy 
+ * @param {*} id 
+ * @param {*} meta 
+ */
+function processEleMeta(cy, id, meta) {
+  const ele = cy.elements().getElementById(id)[0];
+  if (!ele) {
+    return;
+  }
+  if (meta & 1 << META_FLAG_IDX.HIGHLIGHTED) {
+    ele.classes('highlighted');
+  }
+}
+
+function wasmNodeIDtoCyto(id) {
+  return NODE_ID_PREFIX + id;
+}
+
+function wasmEdgeIDtoCyto(id) {
+  return EDGE_ID_PREFIX + id;
+}
+
+/**
  *  Get the newly added elements in the backing wasm graph and populate them into cytoscape
  */
 function populateAdditions(cy, cytograph) {
   const addedNodesPtr = cytograph.get_added_nodes();
   const addedNodesCount = cytograph.added_nodes_count();
+  const addedNodesSize = cytograph.added_nodes_size();
   const addedNodes = new Uint32Array(
     memory.buffer,
     addedNodesPtr,
-    addedNodesCount
+    addedNodesCount * addedNodesSize
   );
-  for (var i = 0; i < addedNodes.length; i++) {
+  for (var i = 0; i < addedNodes.length; i += addedNodesSize) {
+    let id = wasmNodeIDtoCyto(addedNodes[i]);
+    let meta = cytograph.get_node_meta(id);
+    console.log("META", meta)
     cy.add({
       group: "nodes",
-      data: { id: addedNodes[i] },
+      data: { id },
     });
+    console.log("Added node", id)
+    processEleMeta(cy, id, meta);
   }
 
   const addedEdgesPtr = cytograph.get_added_edges();
   const addedEdgesCount = cytograph.added_edges_count();
-  const addedEdgesRaw = new Uint32Array(
+  const addedEdgesSize = cytograph.added_edges_size();
+  const addedEdges = new Uint32Array(
     memory.buffer,
     addedEdgesPtr,
-    addedEdgesCount
+    addedEdgesCount * addedEdgesSize
   );
-  for (var i = 0; i < addedEdgesRaw.length; i += 2) {
+  for (var i = 0; i < addedEdges.length; i += addedEdgesSize) {
+    let id = wasmEdgeIDtoCyto(addedEdges[i]);
+    let source = wasmNodeIDtoCyto(addedEdges[i + 1]);
+    let target = wasmNodeIDtoCyto(addedEdges[i + 2]);
+    let meta = cytograph.get_edge_meta(id);
     cy.add({
       group: "edges",
-      data: { source: addedEdgesRaw[i], target: addedEdgesRaw[i + 1] },
+      data: { id, source, target },
     });
+    console.log(`Added edge ${source} => ${target}`)
+    processEleMeta(cy, id, meta);
   }
 }
 
@@ -94,42 +132,13 @@ function onTick(cy, cytograph) {
  * @param {*} cy
  */
 function initGraph(cy) {
-  const cytograph = CytoGraph.new();
-  var src = cytograph.add_node();
-  var dst = cytograph.add_node();
+  const cytograph = CytoGraph.new_full(5);
+  populateAdditions(cy, cytograph);
+  regroupCy(cy);
 
-  var ptr = cytograph.get_added_nodes();
-  const nodes = new Uint32Array(
-    memory.buffer,
-    ptr,
-    cytograph.added_nodes_count() * cytograph.added_nodes_size()
-  );
-  for (var i = 0; i < nodes.length; i += cytograph.added_nodes_size()) {
-    console.log(`Node ID ${nodes[i]}`);
-  }
-
-  console.log(`Meta ${cytograph.get_node_meta(src)}`);
-  cytograph.set_node_meta(src, 69);
-  console.log(`Meta ${cytograph.get_node_meta(src)}`);
-
-  var edge = cytograph.add_edge(src, dst);
-  var edge = cytograph.add_edge(dst, src);
-  var edge = cytograph.add_edge(src, dst);
-  var edge = cytograph.add_edge(src, dst);
-  var edge = cytograph.add_edge(src, dst);
-
-  const edges = new Uint32Array(
-    memory.buffer,
-    cytograph.get_added_edges(),
-    cytograph.added_edges_count() * cytograph.added_edges_size()
-  );
-  for (var i = 0; i < edges.length; i += cytograph.added_edges_size()) {
-    console.log(`Edge ID ${edges[i]} from ${edges[i + 1]} => ${edges[i + 2]}`);
-  }
-  // document.getElementById("addNodeButton").onclick = () => cytograph.add_node();
   // document.getElementById("tickTimeButton").onclick = () =>
   //   onTick(cy, cytograph);
-  // document.getElementById("regroupButton").onclick = () => regroupCy(cy);
+  document.getElementById("regroupButton").onclick = () => regroupCy(cy);
 }
 
 /**
@@ -167,6 +176,16 @@ function initCy() {
         selector: "node[id]",
         style: {
           label: "data(id)",
+        },
+      },
+      {
+        selector: '.highlighted',
+        style: {
+          'background-color': '#75b5aa',
+          'line-color': '#75b5aa',
+          'target-arrow-color': '#75b5aa',
+          'transition-property': 'background-color, line-color, target-arrow-color',
+          'transition-duration': '0.5s',
         },
       },
     ],
