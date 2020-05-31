@@ -334,13 +334,13 @@ mod tests {
         assert_eq!(meta, 32);
     }
 
-    // #[test]
-    // fn test_imported_fsms() {
-    //     let mut machine: StateMachine<fsms::RandomOnOff> = StateMachine::new();
-    //     let _ = machine.consume(&fsms::RandomOnOffInput::Successful);
-    //     assert_eq!(machine.state(), &fsms::RandomOnOffState::On);
+    #[test]
+    fn test_imported_fsms() {
+        let mut machine: StateMachine<fsms::random_on_off_fsm::RandomOnOff> = StateMachine::new();
+        let _ = machine.consume(&fsms::random_on_off_fsm::RandomOnOffInput::Successful);
+        assert_eq!(machine.state(), &fsms::random_on_off_fsm::RandomOnOffState::On);
 
-    //     let _ = machine.consume(&fsms::RandomOnOffInput::Successful);
-    //     assert_eq!(machine.state(), &fsms::RandomOnOffState::Off);
-    // }
+        let _ = machine.consume(&fsms::random_on_off_fsm::RandomOnOffInput::Successful);
+        assert_eq!(machine.state(), &fsms::random_on_off_fsm::RandomOnOffState::Off);
+    }
 }

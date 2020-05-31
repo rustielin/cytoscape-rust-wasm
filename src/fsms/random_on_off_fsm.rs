@@ -1,7 +1,7 @@
 use rust_fsm::*;
 
 state_machine! {
-    RandomOnOff(Off)
+    pub RandomOnOff(Off)
 
     On => {
         Successful => Off [Dim],

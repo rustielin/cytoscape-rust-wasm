@@ -1,7 +1,7 @@
 use rust_fsm::*;
 
 state_machine! {
-    NaiveConsensus(Rand)
+    pub NaiveConsensus(Rand)
 
     Rand => {
         RandBlue => Blue [HighlightBlue],
