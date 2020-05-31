@@ -1,7 +1,12 @@
+#![feature(generators, generator_trait)]
+
 mod utils;
 
 extern crate web_sys;
+extern crate js_sys;
 
+use std::ops::{Generator, GeneratorState};
+use std::pin::Pin;
 use petgraph::graph::{Graph, NodeIndex, EdgeIndex};
 use wasm_bindgen::prelude::*;
 
@@ -40,6 +45,8 @@ pub struct WasmEdge {
 #[wasm_bindgen]
 pub struct CytoGraph {
     graph: Graph<u8, u8>, // use u8 to store metadata as weight for now
+    node_ids: Vec<u32>,
+    edge_ids: Vec<u32>,
     added_nodes: Vec<WasmNode>,
     removed_nodes: Vec<WasmNode>,
     added_edges: Vec<WasmEdge>,
@@ -47,10 +54,20 @@ pub struct CytoGraph {
     time: u32,
 }
 
+// impl Generator<u8> for CytoGraph {
+//     type Yield = u8;
+//     type Return = u8;
+//     fn resume(self: Pin<&mut Self>, prev_time: u8) -> GeneratorState<Self::Yield, Self::Return> {
+//         GeneratorState::Yielded(prev_time)
+//     }
+// }
+
 #[wasm_bindgen]
 impl CytoGraph {
     pub fn new() -> CytoGraph {
         let graph = Graph::<u8, u8>::new();
+        let node_ids = Vec::new();
+        let edge_ids = Vec::new();
         let added_nodes = Vec::new();
         let removed_nodes = Vec::new();
         let added_edges = Vec::new();
@@ -58,6 +75,8 @@ impl CytoGraph {
         let time = 0;
         CytoGraph {
             graph,
+            node_ids,
+            edge_ids,
             added_nodes,
             removed_nodes,
             added_edges,
@@ -83,9 +102,62 @@ impl CytoGraph {
         g
     }
 
+    /// returns an iterator so we can "tick" it
+    /// 1 means there's still stuff, 0 is done, 2 is error
+    /// it shoud mutate state of the current CytoGraph instance
+    /// Do something given the current network state
+    pub fn tick(&mut self) -> u8 {
+
+        // all nodes do something
+        for idx in self.graph.node_indices() {
+            let node_meta = self.get_node_meta(idx.index() as u32);
+            let new_meta = node_meta ^ 1;
+            if js_sys::Math::random() < 0.5 {
+                // each node does something given state and state machine
+                self.set_node_meta(idx.index() as u32, new_meta);
+                log!("New meta for node_{} set to {}", idx.index(), new_meta);
+            } else {
+                log!("Meta for node_{} stays at {}", idx.index(), new_meta);
+            }
+        }
+        self.added_nodes.clear();
+        self.removed_nodes.clear();
+        self.added_edges.clear();
+        self.removed_edges.clear();
+        log!("Tick {}", self.time);
+        self.time += 1;
+
+        1
+
+        // all edges do something(?)
+
+        // match Pin::new(self).resume(8) {
+        //     GeneratorState::Yielded(1) => {
+        //         // run algo
+        //         1
+        //     },
+        //     GeneratorState::Complete(x) => {
+        //         x
+        //     },
+        //     _ => {
+        //         2
+        //     }
+        // }
+        // move || {
+        //     utils::set_panic_hook();
+
+        //     let node_meta = self.get_node_meta(self.graph.node_indices().next().unwrap().index() as u32);
+
+
+
+        //     yield 1;
+        // }
+    }
+
     pub fn add_node(&mut self) -> u32 {
         let idx = self.graph.add_node(0);
         let id = idx.index() as u32;
+        self.node_ids.push(id);
         self.added_nodes.push(WasmNode { id });
         id
     }
@@ -127,6 +199,7 @@ impl CytoGraph {
             0,
         );
         let id = idx.index() as u32;
+        self.edge_ids.push(id);
         self.added_edges.push(WasmEdge { id, src, dst });
         id
     }
@@ -159,6 +232,22 @@ impl CytoGraph {
     /// directly into wasm linear memory
     pub fn added_edges_size(&self) -> u32 {
         3
+    }
+
+    pub fn get_node_ids(&self) -> *const u32 {
+        self.node_ids.as_ptr()
+    }
+
+    pub fn node_ids_count(&self) -> u32 {
+        self.node_ids.len() as u32
+    }
+
+    pub fn get_edge_ids(&self) -> *const u32 {
+        self.edge_ids.as_ptr()
+    }
+
+    pub fn edge_ids_count(&self) -> u32 {
+        self.edge_ids.len() as u32
     }
 
     //     pub fn new() -> CytoGraph {

@@ -18,8 +18,11 @@ function processEleMeta(cy, id, meta) {
   if (!ele) {
     return;
   }
+  var clear
   if (meta & 1 << META_FLAG_IDX.HIGHLIGHTED) {
-    ele.classes('highlighted');
+    ele.addClass('highlighted');
+  } else {
+    ele.removeClass('highlighted');
   }
 }
 
@@ -29,6 +32,35 @@ function wasmNodeIDtoCyto(id) {
 
 function wasmEdgeIDtoCyto(id) {
   return EDGE_ID_PREFIX + id;
+}
+
+function operateOnMeta(cy, cytograph) {
+  const nodeIdsPtr = cytograph.get_node_ids();
+  const nodeIdsCount = cytograph.node_ids_count();
+  const nodeIds = new Uint32Array(
+    memory.buffer,
+    nodeIdsPtr,
+    nodeIdsCount
+  );
+  for (var i = 0; i < nodeIdsCount; i++) {
+    let id = wasmNodeIDtoCyto(nodeIds[i]);
+    let meta = cytograph.get_node_meta(nodeIds[i]);
+    console.log(`Processing ${id} for ${meta}`);
+    processEleMeta(cy, id, meta);
+  }
+
+  const edgeIdsPtr = cytograph.get_edge_ids();
+  const edgeIdsCount = cytograph.edge_ids_count();
+  const edgeIds = new Uint32Array(
+    memory.buffer,
+    edgeIdsPtr,
+    edgeIdsCount
+  );
+  for (var i = 0; i < edgeIdsCount; i++) {
+    let id = wasmEdgeIDtoCyto(edgeIds[i]);
+    let meta = cytograph.get_edge_meta(edgeIds[i]);
+    processEleMeta(cy, id, meta);
+  }
 }
 
 /**
@@ -44,8 +76,8 @@ function populateAdditions(cy, cytograph) {
     addedNodesCount * addedNodesSize
   );
   for (var i = 0; i < addedNodes.length; i += addedNodesSize) {
+    let meta = cytograph.get_node_meta(addedNodes[i]);
     let id = wasmNodeIDtoCyto(addedNodes[i]);
-    let meta = cytograph.get_node_meta(id);
     console.log("META", meta)
     cy.add({
       group: "nodes",
@@ -64,10 +96,10 @@ function populateAdditions(cy, cytograph) {
     addedEdgesCount * addedEdgesSize
   );
   for (var i = 0; i < addedEdges.length; i += addedEdgesSize) {
+    let meta = cytograph.get_edge_meta(addedEdges[i]);
     let id = wasmEdgeIDtoCyto(addedEdges[i]);
     let source = wasmNodeIDtoCyto(addedEdges[i + 1]);
     let target = wasmNodeIDtoCyto(addedEdges[i + 2]);
-    let meta = cytograph.get_edge_meta(id);
     cy.add({
       group: "edges",
       data: { id, source, target },
@@ -123,8 +155,10 @@ function regroupCy(cy) {
  */
 function onTick(cy, cytograph) {
   populateAdditions(cy, cytograph);
-  removeElements(cy, cytograph);
+  operateOnMeta(cy, cytograph);
+  // removeElements(cy, cytograph);
   cytograph.tick();
+  regroupCy(cy);
 }
 
 /**
@@ -133,11 +167,9 @@ function onTick(cy, cytograph) {
  */
 function initGraph(cy) {
   const cytograph = CytoGraph.new_full(5);
-  populateAdditions(cy, cytograph);
-  regroupCy(cy);
+  onTick(cy, cytograph);
 
-  // document.getElementById("tickTimeButton").onclick = () =>
-  //   onTick(cy, cytograph);
+  document.getElementById("tickTimeButton").onclick = () => onTick(cy, cytograph);
   document.getElementById("regroupButton").onclick = () => regroupCy(cy);
 }
 
@@ -185,7 +217,6 @@ function initCy() {
           'line-color': '#75b5aa',
           'target-arrow-color': '#75b5aa',
           'transition-property': 'background-color, line-color, target-arrow-color',
-          'transition-duration': '0.5s',
         },
       },
     ],
