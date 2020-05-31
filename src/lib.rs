@@ -1,10 +1,12 @@
 mod utils;
+mod fsms;
 
 extern crate web_sys;
 extern crate js_sys;
 
 use petgraph::graph::{Graph, NodeIndex, EdgeIndex};
 use wasm_bindgen::prelude::*;
+use rust_fsm::*;
 
 // When the `wee_alloc` feature is enabled, use `wee_alloc` as the global
 // allocator.
@@ -47,6 +49,7 @@ pub struct CytoGraph {
     removed_nodes: Vec<WasmNode>,
     added_edges: Vec<WasmEdge>,
     removed_edges: Vec<WasmEdge>,
+    // node_machines: Vec<StateMachine>,
     time: u32,
 }
 
@@ -330,4 +333,14 @@ mod tests {
         let meta = cyto.get_node_meta(idx);
         assert_eq!(meta, 32);
     }
+
+    // #[test]
+    // fn test_imported_fsms() {
+    //     let mut machine: StateMachine<fsms::RandomOnOff> = StateMachine::new();
+    //     let _ = machine.consume(&fsms::RandomOnOffInput::Successful);
+    //     assert_eq!(machine.state(), &fsms::RandomOnOffState::On);
+
+    //     let _ = machine.consume(&fsms::RandomOnOffInput::Successful);
+    //     assert_eq!(machine.state(), &fsms::RandomOnOffState::Off);
+    // }
 }
