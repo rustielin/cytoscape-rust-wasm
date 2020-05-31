@@ -1,12 +1,8 @@
-#![feature(generators, generator_trait)]
-
 mod utils;
 
 extern crate web_sys;
 extern crate js_sys;
 
-use std::ops::{Generator, GeneratorState};
-use std::pin::Pin;
 use petgraph::graph::{Graph, NodeIndex, EdgeIndex};
 use wasm_bindgen::prelude::*;
 
@@ -54,17 +50,10 @@ pub struct CytoGraph {
     time: u32,
 }
 
-// impl Generator<u8> for CytoGraph {
-//     type Yield = u8;
-//     type Return = u8;
-//     fn resume(self: Pin<&mut Self>, prev_time: u8) -> GeneratorState<Self::Yield, Self::Return> {
-//         GeneratorState::Yielded(prev_time)
-//     }
-// }
-
 #[wasm_bindgen]
 impl CytoGraph {
     pub fn new() -> CytoGraph {
+        utils::set_panic_hook();
         let graph = Graph::<u8, u8>::new();
         let node_ids = Vec::new();
         let edge_ids = Vec::new();
@@ -102,12 +91,10 @@ impl CytoGraph {
         g
     }
 
-    /// returns an iterator so we can "tick" it
-    /// 1 means there's still stuff, 0 is done, 2 is error
-    /// it shoud mutate state of the current CytoGraph instance
-    /// Do something given the current network state
+    /// Do something given the current network state for all elements
+    /// Returns a u8 depending on its execution state
+    /// (0) return, (1) yield, (2) error
     pub fn tick(&mut self) -> u8 {
-
         // all nodes do something
         for idx in self.graph.node_indices() {
             let node_meta = self.get_node_meta(idx.index() as u32);
@@ -126,32 +113,7 @@ impl CytoGraph {
         self.removed_edges.clear();
         log!("Tick {}", self.time);
         self.time += 1;
-
         1
-
-        // all edges do something(?)
-
-        // match Pin::new(self).resume(8) {
-        //     GeneratorState::Yielded(1) => {
-        //         // run algo
-        //         1
-        //     },
-        //     GeneratorState::Complete(x) => {
-        //         x
-        //     },
-        //     _ => {
-        //         2
-        //     }
-        // }
-        // move || {
-        //     utils::set_panic_hook();
-
-        //     let node_meta = self.get_node_meta(self.graph.node_indices().next().unwrap().index() as u32);
-
-
-
-        //     yield 1;
-        // }
     }
 
     pub fn add_node(&mut self) -> u32 {
