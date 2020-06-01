@@ -8,17 +8,28 @@ import dagre from "cytoscape-dagre";
 cytoscape.use(dagre);
 
 /**
- * 
+ * For now, creates if not found
  * @param {*} cy 
  * @param {*} id 
  * @param {*} meta 
  */
-function processEleMeta(cy, id, meta) {
-  const ele = cy.elements().getElementById(id)[0];
+function processEleMeta(cy, id, meta, isNode = true, options = {}) {
+  console.log(`Processing ${id} with ${JSON.stringify(options)} for ${meta}`);
+  var ele = cy.elements().getElementById(id)[0];
   if (!ele) {
-    return;
+    console.log("ADDING")
+    ele = cy.add({
+      group: isNode ? "nodes" : "edges",
+      data: { id, ...options }
+    })
   }
-  var clear
+  // check if addClass is idempotent
+  if (meta & 1 << META_FLAG_IDX.PRESENT) {
+    ele.removeClass('hidden')
+  } else {
+    ele.addClass('hidden')
+  }
+
   if (meta & 1 << META_FLAG_IDX.HIGHLIGHTED) {
     ele.addClass('highlighted');
   } else {
@@ -34,7 +45,7 @@ function wasmEdgeIDtoCyto(id) {
   return EDGE_ID_PREFIX + id;
 }
 
-function operateOnMeta(cy, cytograph) {
+function operateOnNodeMeta(cy, cytograph) {
   const nodeIdsPtr = cytograph.get_node_ids();
   const nodeIdsCount = cytograph.node_ids_count();
   const nodeIds = new Uint32Array(
@@ -45,10 +56,11 @@ function operateOnMeta(cy, cytograph) {
   for (var i = 0; i < nodeIdsCount; i++) {
     let id = wasmNodeIDtoCyto(nodeIds[i]);
     let meta = cytograph.get_node_meta(nodeIds[i]);
-    console.log(`Processing ${id} for ${meta}`);
-    processEleMeta(cy, id, meta);
+    processEleMeta(cy, id, meta, true);
   }
+}
 
+function operateOnEdgeMeta(cy, cytograph) {
   const edgeIdsPtr = cytograph.get_edge_ids();
   const edgeIdsCount = cytograph.edge_ids_count();
   const edgeIds = new Uint32Array(
@@ -57,57 +69,21 @@ function operateOnMeta(cy, cytograph) {
     edgeIdsCount
   );
   for (var i = 0; i < edgeIdsCount; i++) {
-    let id = wasmEdgeIDtoCyto(edgeIds[i]);
-    let meta = cytograph.get_edge_meta(edgeIds[i]);
-    processEleMeta(cy, id, meta);
+    let wasmEdgeID = edgeIds[i];
+    let ends = new Uint32Array(memory.buffer, cytograph.get_edge_ends(wasmEdgeID), 2);
+    let source = wasmNodeIDtoCyto(ends[0]);
+    let target = wasmNodeIDtoCyto(ends[1]);
+    let id = wasmEdgeIDtoCyto(wasmEdgeID);
+    let meta = cytograph.get_edge_meta(wasmEdgeID);
+    processEleMeta(cy, id, meta, false, {source, target});
   }
 }
 
-/**
- *  Get the newly added elements in the backing wasm graph and populate them into cytoscape
- */
-function populateAdditions(cy, cytograph) {
-  const addedNodesPtr = cytograph.get_added_nodes();
-  const addedNodesCount = cytograph.added_nodes_count();
-  const addedNodesSize = cytograph.added_nodes_size();
-  const addedNodes = new Uint32Array(
-    memory.buffer,
-    addedNodesPtr,
-    addedNodesCount * addedNodesSize
-  );
-  for (var i = 0; i < addedNodes.length; i += addedNodesSize) {
-    let meta = cytograph.get_node_meta(addedNodes[i]);
-    let id = wasmNodeIDtoCyto(addedNodes[i]);
-    console.log("META", meta)
-    cy.add({
-      group: "nodes",
-      data: { id },
-    });
-    console.log("Added node", id)
-    processEleMeta(cy, id, meta);
-  }
-
-  const addedEdgesPtr = cytograph.get_added_edges();
-  const addedEdgesCount = cytograph.added_edges_count();
-  const addedEdgesSize = cytograph.added_edges_size();
-  const addedEdges = new Uint32Array(
-    memory.buffer,
-    addedEdgesPtr,
-    addedEdgesCount * addedEdgesSize
-  );
-  for (var i = 0; i < addedEdges.length; i += addedEdgesSize) {
-    let meta = cytograph.get_edge_meta(addedEdges[i]);
-    let id = wasmEdgeIDtoCyto(addedEdges[i]);
-    let source = wasmNodeIDtoCyto(addedEdges[i + 1]);
-    let target = wasmNodeIDtoCyto(addedEdges[i + 2]);
-    cy.add({
-      group: "edges",
-      data: { id, source, target },
-    });
-    console.log(`Added edge ${source} => ${target}`)
-    processEleMeta(cy, id, meta);
-  }
+function operateOnMeta(cy, cytograph) {
+  operateOnNodeMeta(cy, cytograph);
+  operateOnEdgeMeta(cy, cytograph);
 }
+
 
 function removeElements(cy, cytograph) {
   const removedNodesPtr = cytograph.get_removed_nodes();
@@ -141,7 +117,7 @@ function removeElements(cy, cytograph) {
 
 function regroupCy(cy) {
   var layout = cy.layout({
-    name: "dagre",
+    name: "circle",
     animationDuration: 300,
   });
   layout.run();
@@ -154,10 +130,13 @@ function regroupCy(cy) {
  * @param {*} cytograph
  */
 function onTick(cy, cytograph) {
-  populateAdditions(cy, cytograph);
-  operateOnMeta(cy, cytograph);
+  console.log(`--------------- TICK ---------------`);
+  // populateAdditions(cy, cytograph);
+  cytograph.tick(); // do it
+  console.log(`--------------- END SIMULATION ---------------`);
+  operateOnMeta(cy, cytograph); // display
+  console.log(`--------------- END VISUALIZATION ---------------`);
   // removeElements(cy, cytograph);
-  cytograph.tick();
   regroupCy(cy);
 }
 
@@ -167,7 +146,8 @@ function onTick(cy, cytograph) {
  */
 function initGraph(cy) {
   const cytograph = CytoGraph.new_full(5);
-  onTick(cy, cytograph);
+  operateOnMeta(cy, cytograph);
+  regroupCy(cy);
 
   document.getElementById("tickTimeButton").onclick = () => onTick(cy, cytograph);
   document.getElementById("regroupButton").onclick = () => regroupCy(cy);
@@ -184,7 +164,7 @@ function initCy() {
     autounselectify: true,
 
     layout: {
-      name: "dagre",
+      name: "circle",
     },
 
     style: [
@@ -217,6 +197,12 @@ function initCy() {
           'line-color': '#75b5aa',
           'target-arrow-color': '#75b5aa',
           'transition-property': 'background-color, line-color, target-arrow-color',
+        },
+      },
+      {
+        selector: '.hidden',
+        style: {
+          'visibility': 'hidden'
         },
       },
     ],

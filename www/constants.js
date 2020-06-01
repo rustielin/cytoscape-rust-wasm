@@ -5,7 +5,8 @@
  * TODO: probably give it a callback also to apply the style
  */
 export const META_FLAG_IDX = {
-    HIGHLIGHTED: 0
+    PRESENT: 0,
+    HIGHLIGHTED: 1
 }
 
 /**
